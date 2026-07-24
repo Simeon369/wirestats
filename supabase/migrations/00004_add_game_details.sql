@@ -1,0 +1,9 @@
+-- Migration 00004: Add fouls and rosters to games table
+
+ALTER TABLE public.games
+ADD COLUMN IF NOT EXISTS fouls_a INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS fouls_b INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN IF NOT EXISTS roster_active_a JSONB NOT NULL DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS roster_active_b JSONB NOT NULL DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS roster_bench_a JSONB NOT NULL DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS roster_bench_b JSONB NOT NULL DEFAULT '[]'::jsonb;

@@ -3,11 +3,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Fredoka, Nunito } from "next/font/google";
-
 import { Jersey } from "@/components/ui/Jersey";
 
 const fredoka = Fredoka({ variable: "--font-fredoka", subsets: ["latin"] });
 const nunito = Nunito({ variable: "--font-nunito", subsets: ["latin"] });
+
+type Player = {
+  id: string;
+  number: string;
+  name: string;
+};
 
 type GameRow = {
   id: string;
@@ -18,6 +23,12 @@ type GameRow = {
   team_b_color: string;
   score_a: number;
   score_b: number;
+  fouls_a: number;
+  fouls_b: number;
+  roster_active_a: Player[];
+  roster_active_b: Player[];
+  roster_bench_a: Player[];
+  roster_bench_b: Player[];
   period: number;
   clock_seconds: number;
   is_running: boolean;
@@ -51,11 +62,11 @@ function periodLabel(period: number, totalPeriods: number): string {
 
 function eventLabel(event: StatEvent): string {
   switch (event.event_type) {
-    case "2pt": return "2-Pointer";
-    case "3pt": return "3-Pointer";
-    case "ft": return "Free Throw";
-    case "foul": return "Foul";
-    case "sub": return "Substitution";
+    case "2pt": return "🏀2";
+    case "3pt": return "🏀3";
+    case "ft": return "🏀1";
+    case "foul": return "🚨";
+    case "sub": return "🔄";
     default: return event.event_type;
   }
 }
@@ -70,7 +81,6 @@ export default function LiveScoreboard() {
   // Load the most recent active game
   useEffect(() => {
     async function loadGame() {
-      // Guard: supabase client may be null during SSR prerender
       if (!supabase) { setNoGame(true); setLoading(false); return; }
 
       const { data, error } = await supabase
@@ -90,7 +100,6 @@ export default function LiveScoreboard() {
       setDisplayClock(data.clock_seconds);
       setLoading(false);
 
-      // Also load recent events
       const { data: evData } = await supabase
         .from("stat_events")
         .select("*")
@@ -99,7 +108,6 @@ export default function LiveScoreboard() {
         .limit(20);
       if (evData) setEvents(evData as StatEvent[]);
 
-      // Subscribe to game changes
       const gameChannel = supabase
         .channel(`game-${data.id}`)
         .on("postgres_changes", {
@@ -109,8 +117,19 @@ export default function LiveScoreboard() {
           filter: `id=eq.${data.id}`,
         }, (payload) => {
           const updated = payload.new as GameRow;
-          setGame(updated);
-          setDisplayClock(updated.clock_seconds);
+          setGame((prev) => {
+            if (prev) {
+              setDisplayClock((currentClock) => {
+                if (!updated.is_running) return updated.clock_seconds;
+                if (!prev.is_running && updated.is_running) return updated.clock_seconds;
+                if (Math.abs(currentClock - updated.clock_seconds) > 3) return updated.clock_seconds;
+                return currentClock;
+              });
+            } else {
+              setDisplayClock(updated.clock_seconds);
+            }
+            return updated;
+          });
         })
         .on("postgres_changes", {
           event: "INSERT",
@@ -135,16 +154,9 @@ export default function LiveScoreboard() {
       setDisplayClock((s) => (s > 0 ? s - 1 : 0));
     }, 1000);
     return () => clearInterval(interval);
-  }, [game?.is_running, game?.clock_seconds]);
+  }, [game?.is_running]);
 
-  // Sync display clock from server when paused
-  useEffect(() => {
-    if (game && !game.is_running) {
-      setDisplayClock(game.clock_seconds);
-    }
-  }, [game?.clock_seconds, game?.is_running]);
-
-  const totalPeriods = 4; // default; could be stored in DB
+  const totalPeriods = 4;
 
   if (loading) {
     return (
@@ -171,71 +183,118 @@ export default function LiveScoreboard() {
 
   return (
     <div className={`${fredoka.variable} ${nunito.variable} min-h-screen bg-slate-900 flex flex-col`}>
-      {/* Header */}
       <header className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-b-4 border-slate-700 gap-4">
         <h1 className="font-fredoka text-3xl md:text-4xl font-black tracking-widest text-white">
           Wire<span className="text-[#65d421] ml-1" style={{ textShadow: "1px 1px 0 #1b630a,2px 2px 0 #1b630a", WebkitTextStroke: "1px #1b630a" }}>Stats</span>
         </h1>
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end">
-          {isFinished ? (
-            <span className="font-nunito text-sm font-black text-red-400 uppercase tracking-widest border border-red-600 px-3 py-1 animate-pulse">FINAL</span>
-          ) : (
-            <span className={`font-nunito text-sm font-black uppercase tracking-widest border px-3 py-1 ${game.is_running ? "text-[#65d421] border-[#65d421] animate-pulse" : "text-slate-400 border-slate-600"}`}>
-              {game.is_running ? "● LIVE" : "⏸ PAUSED"}
-            </span>
-          )}
-        </div>
       </header>
 
-      {/* Main scoreboard */}
-      <main className="flex flex-col items-center justify-center flex-1 px-4 sm:px-6 py-6 sm:py-8 gap-6 sm:gap-8 max-w-3xl mx-auto w-full">
-
-        {/* Period + Clock */}
-        <div className="flex flex-col items-center gap-2">
-          <span className="font-fredoka text-xl md:text-2xl font-black uppercase tracking-widest text-slate-400">{per}</span>
-          <div className={`font-fredoka text-6xl sm:text-8xl font-black tracking-widest px-6 sm:px-8 py-3 sm:py-4 border-4 border-slate-900 ${game.is_running ? "bg-slate-900 text-[#65d421] shadow-[6px_6px_0_#65d421]" : "bg-[#65d421] text-slate-900 shadow-[6px_6px_0_#0f172a]"}`}>
+      <main className="flex flex-col items-center justify-start flex-1 px-4 sm:px-6 py-6 sm:py-8 gap-6 max-w-3xl mx-auto w-full">
+        {/* Row: Period | Clock | Status */}
+        <div className="flex items-center justify-between w-full px-2">
+          <div className="flex-1 flex justify-start">
+            <span className="font-fredoka text-4xl font-black uppercase tracking-widest text-slate-400">{per}</span>
+          </div>
+          
+          <div className={`font-fredoka text-6xl sm:text-8xl font-black tracking-widest px-6 sm:px-8 py-2 border-4 border-slate-900 ${game.is_running ? "bg-slate-900 text-[#65d421] shadow-[4px_4px_0_#65d421]" : "bg-[#65d421] text-slate-900 shadow-[4px_4px_0_#0f172a]"}`}>
             {formatClock(displayClock)}
+          </div>
+
+          <div className="flex-1 flex justify-end">
+            {isFinished ? (
+              <span className="font-nunito text-lg font-black text-red-400 uppercase tracking-widest border-2 border-red-600 px-2 py-1 animate-pulse">FINAL</span>
+            ) : game.is_running ? (
+              <div className="flex gap-1 animate-pulse">
+                <div className="w-3 h-8 bg-[#65d421]"></div>
+                <div className="w-3 h-8 bg-[#65d421]"></div>
+              </div>
+            ) : (
+              <div className="flex gap-1">
+                <div className="w-3 h-8 bg-slate-500"></div>
+                <div className="w-3 h-8 bg-slate-500"></div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Score panel */}
-        <div className="w-full border-4 border-slate-900 bg-white shadow-[8px_8px_0_#0f172a]">
-          <div className="flex flex-col sm:grid sm:grid-cols-3 items-center p-6 gap-6 sm:gap-4">
-            {/* Team A */}
-            <div className="flex flex-col items-center gap-2 sm:gap-3 w-full">
+        <div className="w-full border-4 border-slate-900 bg-white shadow-[8px_8px_0_#0f172a] p-4 flex flex-col gap-6 mt-2">
+          {/* Top Row: Team Names and Fouls */}
+          <div className="flex justify-between items-end gap-4">
+            <div className="flex flex-col items-center flex-1 w-0">
+              <span className="font-nunito text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
+                <span className="text-[10px]">🔴</span> FOULS: {game.fouls_a ?? 0}
+              </span>
               <span
-                className="font-fredoka text-xl sm:text-2xl font-black uppercase tracking-widest px-3 sm:px-4 py-2 border-2 border-slate-900 text-white text-center w-full truncate"
+                className="font-fredoka text-xl font-black uppercase tracking-widest px-3 py-1 border-2 border-slate-900 text-center w-full truncate"
                 style={{ backgroundColor: game.team_a_color, color: game.team_a_color.toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff" }}
               >
                 {game.team_a_name}
               </span>
-              <span className="font-fredoka text-8xl sm:text-9xl font-black text-slate-900 leading-none">{game.score_a}</span>
             </div>
-
-            {/* VS divider */}
-            <div className="flex flex-col items-center gap-1 sm:gap-2">
-              <span className="font-fredoka text-2xl sm:text-4xl font-black text-slate-200">VS</span>
-              {isFinished && (
-                <span className="font-nunito text-xs sm:text-sm font-black text-red-500 uppercase border border-red-400 px-2 py-0.5">FINAL</span>
-              )}
-            </div>
-
-            {/* Team B */}
-            <div className="flex flex-col items-center gap-2 sm:gap-3 w-full">
+            <div className="flex flex-col items-center flex-1 w-0">
+              <span className="font-nunito text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
+                FOULS: {game.fouls_b ?? 0} <span className="text-[10px]">🔴</span>
+              </span>
               <span
-                className="font-fredoka text-xl sm:text-2xl font-black uppercase tracking-widest px-3 sm:px-4 py-2 border-2 border-slate-900 text-center w-full truncate"
+                className="font-fredoka text-xl font-black uppercase tracking-widest px-3 py-1 border-2 border-slate-900 text-center w-full truncate"
                 style={{ backgroundColor: game.team_b_color, color: game.team_b_color.toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff" }}
               >
                 {game.team_b_name}
               </span>
-              <span className="font-fredoka text-8xl sm:text-9xl font-black text-slate-900 leading-none">{game.score_b}</span>
+            </div>
+          </div>
+
+          {/* Middle Row: Scores */}
+          <div className="flex justify-between items-center px-4 sm:px-12">
+            <span className="font-fredoka text-9xl font-black text-slate-900 leading-none">{game.score_a}</span>
+            <span className="font-fredoka text-3xl font-black text-slate-300">VS</span>
+            <span className="font-fredoka text-9xl font-black text-slate-900 leading-none">{game.score_b}</span>
+          </div>
+          
+          {/* Bottom Row: Rosters */}
+          <div className="flex flex-col gap-3 mt-2">
+            {/* Active Players */}
+            <div className="flex justify-between">
+              <div className="flex gap-1 flex-wrap w-[45%]">
+                {(game.roster_active_a || []).map(p => (
+                  <div key={p.id} className="scale-75 origin-top-left">
+                    <Jersey number={p.number} colorHex={game.team_a_color} size="sm" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-1 flex-wrap w-[45%] justify-end">
+                {(game.roster_active_b || []).map(p => (
+                  <div key={p.id} className="scale-75 origin-top-right">
+                    <Jersey number={p.number} colorHex={game.team_b_color} size="sm" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Bench Players */}
+            <div className="flex justify-between mt-1">
+              <div className="flex gap-1 flex-wrap w-[45%]">
+                {(game.roster_bench_a || []).map(p => (
+                  <div key={p.id} className="scale-50 origin-top-left">
+                    <Jersey number={p.number} colorHex={game.team_a_color} size="sm" dimmed />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-1 flex-wrap w-[45%] justify-end">
+                {(game.roster_bench_b || []).map(p => (
+                  <div key={p.id} className="scale-50 origin-top-right">
+                    <Jersey number={p.number} colorHex={game.team_b_color} size="sm" dimmed />
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Play-by-play feed */}
         {events.length > 0 && (
-          <div className="w-full border-4 border-slate-700 bg-slate-800 p-6">
+          <div className="w-full border-4 border-slate-700 bg-slate-800 p-6 mt-4">
             <h2 className="font-fredoka text-xl font-black uppercase tracking-widest text-slate-400 mb-4">Play-by-Play</h2>
             <div className="flex flex-col gap-2">
               {events.map((ev) => (
