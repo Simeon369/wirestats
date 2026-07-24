@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Fredoka, Nunito } from "next/font/google";
 
+import { Jersey } from "@/components/ui/Jersey";
+
 const fredoka = Fredoka({ variable: "--font-fredoka", subsets: ["latin"] });
 const nunito = Nunito({ variable: "--font-nunito", subsets: ["latin"] });
 
@@ -29,6 +31,10 @@ type StatEvent = {
   period: number;
   clock_snapshot: string | null;
   team: string | null;
+  player_name: string | null;
+  player_number: string | null;
+  player_out_name: string | null;
+  player_out_number: string | null;
   created_at: string;
 };
 
@@ -64,6 +70,9 @@ export default function LiveScoreboard() {
   // Load the most recent active game
   useEffect(() => {
     async function loadGame() {
+      // Guard: supabase client may be null during SSR prerender
+      if (!supabase) { setNoGame(true); setLoading(false); return; }
+
       const { data, error } = await supabase
         .from("games")
         .select("*")
@@ -148,11 +157,11 @@ export default function LiveScoreboard() {
   if (noGame || !game) {
     return (
       <div className={`${fredoka.variable} ${nunito.variable} min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-6`}>
-        <h1 className="font-fredoka text-6xl font-black tracking-widest text-white">
+        <h1 className="font-fredoka text-4xl md:text-6xl font-black tracking-widest text-white">
           Wire<span className="text-[#65d421] ml-2" style={{ textShadow: "1px 1px 0 #1b630a,2px 2px 0 #1b630a,3px 3px 0 #1b630a,4px 4px 0 #1b630a", WebkitTextStroke: "1px #1b630a" }}>Stats</span>
         </h1>
-        <p className="font-nunito text-xl text-slate-400 font-bold uppercase tracking-widest">No live game right now.</p>
-        <p className="font-nunito text-sm text-slate-600">Check back when a match is in progress.</p>
+        <p className="font-nunito text-lg md:text-xl text-slate-400 font-bold uppercase tracking-widest text-center px-4">No live game right now.</p>
+        <p className="font-nunito text-sm text-slate-600 text-center px-4">Check back when a match is in progress.</p>
       </div>
     );
   }
@@ -163,11 +172,11 @@ export default function LiveScoreboard() {
   return (
     <div className={`${fredoka.variable} ${nunito.variable} min-h-screen bg-slate-900 flex flex-col`}>
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-4 border-b-4 border-slate-700">
-        <h1 className="font-fredoka text-4xl font-black tracking-widest text-white">
+      <header className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 border-b-4 border-slate-700 gap-4">
+        <h1 className="font-fredoka text-3xl md:text-4xl font-black tracking-widest text-white">
           Wire<span className="text-[#65d421] ml-1" style={{ textShadow: "1px 1px 0 #1b630a,2px 2px 0 #1b630a", WebkitTextStroke: "1px #1b630a" }}>Stats</span>
         </h1>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-end">
           {isFinished ? (
             <span className="font-nunito text-sm font-black text-red-400 uppercase tracking-widest border border-red-600 px-3 py-1 animate-pulse">FINAL</span>
           ) : (
@@ -179,47 +188,47 @@ export default function LiveScoreboard() {
       </header>
 
       {/* Main scoreboard */}
-      <main className="flex flex-col items-center justify-center flex-1 px-6 py-8 gap-8 max-w-3xl mx-auto w-full">
+      <main className="flex flex-col items-center justify-center flex-1 px-4 sm:px-6 py-6 sm:py-8 gap-6 sm:gap-8 max-w-3xl mx-auto w-full">
 
         {/* Period + Clock */}
         <div className="flex flex-col items-center gap-2">
-          <span className="font-fredoka text-2xl font-black uppercase tracking-widest text-slate-400">{per}</span>
-          <div className={`font-fredoka text-8xl font-black tracking-widest px-8 py-4 border-4 border-slate-900 ${game.is_running ? "bg-slate-900 text-[#65d421] shadow-[6px_6px_0_#65d421]" : "bg-[#65d421] text-slate-900 shadow-[6px_6px_0_#0f172a]"}`}>
+          <span className="font-fredoka text-xl md:text-2xl font-black uppercase tracking-widest text-slate-400">{per}</span>
+          <div className={`font-fredoka text-6xl sm:text-8xl font-black tracking-widest px-6 sm:px-8 py-3 sm:py-4 border-4 border-slate-900 ${game.is_running ? "bg-slate-900 text-[#65d421] shadow-[6px_6px_0_#65d421]" : "bg-[#65d421] text-slate-900 shadow-[6px_6px_0_#0f172a]"}`}>
             {formatClock(displayClock)}
           </div>
         </div>
 
         {/* Score panel */}
         <div className="w-full border-4 border-slate-900 bg-white shadow-[8px_8px_0_#0f172a]">
-          <div className="grid grid-cols-3 items-center p-6 gap-4">
+          <div className="flex flex-col sm:grid sm:grid-cols-3 items-center p-6 gap-6 sm:gap-4">
             {/* Team A */}
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-2 sm:gap-3 w-full">
               <span
-                className="font-fredoka text-2xl font-black uppercase tracking-widest px-4 py-2 border-2 border-slate-900 text-white text-center w-full"
+                className="font-fredoka text-xl sm:text-2xl font-black uppercase tracking-widest px-3 sm:px-4 py-2 border-2 border-slate-900 text-white text-center w-full truncate"
                 style={{ backgroundColor: game.team_a_color, color: game.team_a_color.toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff" }}
               >
                 {game.team_a_name}
               </span>
-              <span className="font-fredoka text-9xl font-black text-slate-900 leading-none">{game.score_a}</span>
+              <span className="font-fredoka text-8xl sm:text-9xl font-black text-slate-900 leading-none">{game.score_a}</span>
             </div>
 
             {/* VS divider */}
-            <div className="flex flex-col items-center gap-2">
-              <span className="font-fredoka text-4xl font-black text-slate-200">VS</span>
+            <div className="flex flex-col items-center gap-1 sm:gap-2">
+              <span className="font-fredoka text-2xl sm:text-4xl font-black text-slate-200">VS</span>
               {isFinished && (
-                <span className="font-nunito text-sm font-black text-red-500 uppercase border border-red-400 px-2 py-0.5">FINAL</span>
+                <span className="font-nunito text-xs sm:text-sm font-black text-red-500 uppercase border border-red-400 px-2 py-0.5">FINAL</span>
               )}
             </div>
 
             {/* Team B */}
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-2 sm:gap-3 w-full">
               <span
-                className="font-fredoka text-2xl font-black uppercase tracking-widest px-4 py-2 border-2 border-slate-900 text-center w-full"
+                className="font-fredoka text-xl sm:text-2xl font-black uppercase tracking-widest px-3 sm:px-4 py-2 border-2 border-slate-900 text-center w-full truncate"
                 style={{ backgroundColor: game.team_b_color, color: game.team_b_color.toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff" }}
               >
                 {game.team_b_name}
               </span>
-              <span className="font-fredoka text-9xl font-black text-slate-900 leading-none">{game.score_b}</span>
+              <span className="font-fredoka text-8xl sm:text-9xl font-black text-slate-900 leading-none">{game.score_b}</span>
             </div>
           </div>
         </div>
@@ -231,17 +240,47 @@ export default function LiveScoreboard() {
             <div className="flex flex-col gap-2">
               {events.map((ev) => (
                 <div key={ev.id} className="flex items-center gap-3 py-2 border-b border-slate-700 last:border-0">
-                  <span
-                    className="font-fredoka text-xs font-black uppercase px-2 py-1 border text-white"
-                    style={{
-                      backgroundColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
-                      borderColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
-                      color: ((ev.team === "A" ? game.team_a_color : game.team_b_color) || "").toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff",
-                    }}
-                  >
-                    {ev.team === "A" ? game.team_a_name : game.team_b_name}
-                  </span>
-                  <span className="font-nunito text-sm font-bold text-white flex-1">{eventLabel(ev)}</span>
+                  <div className="flex items-center gap-2">
+                    {ev.player_number ? (
+                      <Jersey
+                        number={ev.player_number}
+                        colorHex={ev.team === "A" ? game.team_a_color : game.team_b_color}
+                        size="sm"
+                      />
+                    ) : (
+                      <span
+                        className="font-fredoka text-xs font-black uppercase px-2 py-1 border text-white"
+                        style={{
+                          backgroundColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
+                          borderColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
+                          color: ((ev.team === "A" ? game.team_a_color : game.team_b_color) || "").toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff",
+                        }}
+                      >
+                        {ev.team === "A" ? game.team_a_name : game.team_b_name}
+                      </span>
+                    )}
+
+                    {ev.event_type === "sub" && ev.player_out_number && (
+                      <>
+                        <span className="text-slate-500 font-bold px-1">⮂</span>
+                        <Jersey
+                          number={ev.player_out_number}
+                          colorHex={ev.team === "A" ? game.team_a_color : game.team_b_color}
+                          size="sm"
+                          dimmed
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div className="flex flex-col flex-1">
+                    <span className="font-nunito text-sm font-bold text-white">{eventLabel(ev)}</span>
+                    {ev.player_name && (
+                      <span className="font-nunito text-xs text-slate-400">
+                        {ev.player_name}
+                        {ev.event_type === "sub" && ev.player_out_name ? ` (for ${ev.player_out_name})` : ""}
+                      </span>
+                    )}
+                  </div>
                   {ev.points > 0 && (
                     <span className="font-fredoka text-sm font-black text-[#65d421]">+{ev.points}</span>
                   )}
