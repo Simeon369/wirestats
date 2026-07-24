@@ -66,7 +66,7 @@ function eventLabel(event: StatEvent): string {
     case "3pt": return "🏀3";
     case "ft": return "🏀1";
     case "foul": return "🚨";
-    case "sub": return "🔄";
+    case "sub": return " ";
     default: return event.event_type;
   }
 }
@@ -290,58 +290,63 @@ export default function LiveScoreboard() {
 
         {/* Play-by-play feed */}
         {events.length > 0 && (
-          <div className="w-full border-4 border-slate-700 bg-slate-800 p-6 mt-4">
-            <h2 className="font-fredoka text-xl font-black uppercase tracking-widest text-slate-400 mb-4">Play-by-Play</h2>
-            <div className="flex flex-col gap-2">
-              {events.map((ev) => (
-                <div key={ev.id} className="flex items-center gap-3 py-2 border-b border-slate-700 last:border-0">
-                  <div className="flex items-center gap-2">
-                    {ev.player_number ? (
-                      <Jersey
-                        number={ev.player_number}
-                        colorHex={ev.team === "A" ? game.team_a_color : game.team_b_color}
-                        size="sm"
-                      />
-                    ) : (
-                      <span
-                        className="font-fredoka text-xs font-black uppercase px-2 py-1 border text-white"
-                        style={{
-                          backgroundColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
-                          borderColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
-                          color: ((ev.team === "A" ? game.team_a_color : game.team_b_color) || "").toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff",
-                        }}
-                      >
-                        {ev.team === "A" ? game.team_a_name : game.team_b_name}
-                      </span>
-                    )}
-
-                    {ev.event_type === "sub" && ev.player_out_number && (
-                      <>
-                        <span className="text-slate-500 font-bold px-1">⮂</span>
+          <div className="w-full border-4 border-slate-700 bg-slate-800 mt-4">
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <h2 className="font-fredoka text-xl font-black uppercase tracking-widest text-slate-400">Play-by-Play</h2>
+              
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: '280px' }}>
+              <div className="flex flex-col px-4 pb-4">
+                {events.map((ev) => (
+                  <div key={ev.id} className="flex items-center gap-3 py-2 border-b border-slate-700 last:border-0">
+                    <div className="flex items-center gap-2">
+                      {ev.player_number ? (
                         <Jersey
-                          number={ev.player_out_number}
+                          number={ev.player_number}
                           colorHex={ev.team === "A" ? game.team_a_color : game.team_b_color}
                           size="sm"
-                          dimmed
                         />
-                      </>
+                      ) : (
+                        <span
+                          className="font-fredoka text-xs font-black uppercase px-2 py-1 border text-white"
+                          style={{
+                            backgroundColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
+                            borderColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
+                            color: ((ev.team === "A" ? game.team_a_color : game.team_b_color) || "").toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff",
+                          }}
+                        >
+                          {ev.team === "A" ? game.team_a_name : game.team_b_name}
+                        </span>
+                      )}
+
+                      {ev.event_type === "sub" && ev.player_out_number && (
+                        <>
+                          <span className="text-slate-500 font-bold px-1">🔄</span>
+                          <Jersey
+                            number={ev.player_out_number}
+                            colorHex={ev.team === "A" ? game.team_a_color : game.team_b_color}
+                            size="sm"
+                            dimmed
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <span className="font-nunito text-sm font-bold text-white">{eventLabel(ev)}</span>
+                      {ev.player_name && (
+                        <span className="font-nunito text-xs text-slate-400">
+                          {ev.player_name}
+                          {ev.event_type === "sub" && ev.player_out_name ? ` (for ${ev.player_out_name})` : ""}
+                        </span>
+                      )}
+                    </div>
+                    {ev.points > 0 && (
+                      <span className="font-fredoka text-sm font-black text-[#65d421]">+{ev.points}</span>
                     )}
+                    <span className="font-mono text-xs text-slate-500">{ev.clock_snapshot ?? ""}</span>
                   </div>
-                  <div className="flex flex-col flex-1">
-                    <span className="font-nunito text-sm font-bold text-white">{eventLabel(ev)}</span>
-                    {ev.player_name && (
-                      <span className="font-nunito text-xs text-slate-400">
-                        {ev.player_name}
-                        {ev.event_type === "sub" && ev.player_out_name ? ` (for ${ev.player_out_name})` : ""}
-                      </span>
-                    )}
-                  </div>
-                  {ev.points > 0 && (
-                    <span className="font-fredoka text-sm font-black text-[#65d421]">+{ev.points}</span>
-                  )}
-                  <span className="font-mono text-xs text-slate-500">{ev.clock_snapshot ?? ""}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         )}
