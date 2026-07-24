@@ -193,10 +193,10 @@ export default function LiveScoreboard() {
         {/* Row: Period | Clock | Status */}
         <div className="flex items-center justify-between w-full px-2">
           <div className="flex-1 flex justify-start">
-            <span className="font-fredoka text-4xl font-black uppercase tracking-widest text-slate-400">{per}</span>
+            <span className="font-fredoka text-2xl font-black uppercase tracking-widest text-slate-400">{per}</span>
           </div>
           
-          <div className={`font-fredoka text-6xl sm:text-8xl font-black tracking-widest px-6 sm:px-8 py-2 border-4 border-slate-900 ${game.is_running ? "bg-slate-900 text-[#65d421] shadow-[4px_4px_0_#65d421]" : "bg-[#65d421] text-slate-900 shadow-[4px_4px_0_#0f172a]"}`}>
+          <div className={`font-fredoka text-4xl sm:text-8xl font-black tracking-widest px-6 sm:px-8 py-2 border-4 border-slate-900 ${game.is_running ? "bg-slate-900 text-[#65d421] shadow-[4px_4px_0_#65d421]" : "bg-[#65d421] text-slate-900 shadow-[4px_4px_0_#0f172a]"}`}>
             {formatClock(displayClock)}
           </div>
 
@@ -222,22 +222,26 @@ export default function LiveScoreboard() {
           {/* Top Row: Team Names and Fouls */}
           <div className="flex justify-between items-end gap-4">
             <div className="flex flex-col items-center flex-1 w-0">
-              <span className="font-nunito text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
-                <span className="text-[10px]">🔴</span> FOULS: {game.fouls_a ?? 0}
+              <span className="font-nunito text-xs font-bold text-slate-500 mb-1 flex items-center gap-1 min-h-[16px]">
+                {Array.from({ length: game.fouls_a ?? 0 }).map((_, i) => (
+                  <span key={i} className="text-[10px]">🚨</span>
+                ))}
               </span>
               <span
-                className="font-fredoka text-xl font-black uppercase tracking-widest px-3 py-1 border-2 border-slate-900 text-center w-full truncate"
+                className="font-fredoka text-md font-black uppercase tracking-widest px-3 py-1 border-2 border-slate-900 text-center w-full truncate"
                 style={{ backgroundColor: game.team_a_color, color: game.team_a_color.toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff" }}
               >
                 {game.team_a_name}
               </span>
             </div>
             <div className="flex flex-col items-center flex-1 w-0">
-              <span className="font-nunito text-xs font-bold text-slate-500 mb-1 flex items-center gap-1">
-                FOULS: {game.fouls_b ?? 0} <span className="text-[10px]">🔴</span>
+              <span className="font-nunito text-xs font-bold text-slate-500 mb-1 flex items-center gap-1 min-h-[16px]">
+                {Array.from({ length: game.fouls_b ?? 0 }).map((_, i) => (
+                  <span key={i} className="text-[10px]">🚨</span>
+                ))}
               </span>
               <span
-                className="font-fredoka text-xl font-black uppercase tracking-widest px-3 py-1 border-2 border-slate-900 text-center w-full truncate"
+                className="font-fredoka text-md font-black uppercase tracking-widest px-3 py-1 border-2 border-slate-900 text-center w-full truncate"
                 style={{ backgroundColor: game.team_b_color, color: game.team_b_color.toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff" }}
               >
                 {game.team_b_name}
@@ -246,10 +250,10 @@ export default function LiveScoreboard() {
           </div>
 
           {/* Middle Row: Scores */}
-          <div className="flex justify-between items-center px-4 sm:px-12">
-            <span className="font-fredoka text-9xl font-black text-slate-900 leading-none">{game.score_a}</span>
-            <span className="font-fredoka text-3xl font-black text-slate-300">VS</span>
-            <span className="font-fredoka text-9xl font-black text-slate-900 leading-none">{game.score_b}</span>
+          <div className="flex justify-between items-center px-4 sm:px-6">
+            <span className="font-fredoka text-7xl font-black text-slate-900 leading-none">{game.score_a}</span>
+            <span className="font-fredoka text-xl font-black text-slate-300">VS</span>
+            <span className="font-fredoka text-7xl font-black text-slate-900 leading-none">{game.score_b}</span>
           </div>
           
           {/* Bottom Row: Rosters */}
@@ -261,6 +265,10 @@ export default function LiveScoreboard() {
                   <div key={p.id} className="scale-75 origin-top-left">
                     <Jersey number={p.number} colorHex={game.team_a_color} size="sm" />
                   </div>
+                ))}{(game.roster_bench_a || []).map(p => (
+                  <div key={p.id} className="scale-75 origin-top-left">
+                    <Jersey number={p.number} colorHex={game.team_a_color} size="sm" dimmed />
+                  </div>
                 ))}
               </div>
               <div className="flex gap-1 flex-wrap w-[45%] justify-end">
@@ -268,27 +276,15 @@ export default function LiveScoreboard() {
                   <div key={p.id} className="scale-75 origin-top-right">
                     <Jersey number={p.number} colorHex={game.team_b_color} size="sm" />
                   </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Bench Players */}
-            <div className="flex justify-between mt-1">
-              <div className="flex gap-1 flex-wrap w-[45%]">
-                {(game.roster_bench_a || []).map(p => (
-                  <div key={p.id} className="scale-50 origin-top-left">
-                    <Jersey number={p.number} colorHex={game.team_a_color} size="sm" dimmed />
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-1 flex-wrap w-[45%] justify-end">
-                {(game.roster_bench_b || []).map(p => (
-                  <div key={p.id} className="scale-50 origin-top-right">
+                ))}{(game.roster_bench_b || []).map(p => (
+                  <div key={p.id} className="scale-75 origin-top-right">
                     <Jersey number={p.number} colorHex={game.team_b_color} size="sm" dimmed />
                   </div>
                 ))}
               </div>
             </div>
+            
+            
           </div>
         </div>
 

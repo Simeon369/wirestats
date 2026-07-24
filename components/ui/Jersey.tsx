@@ -27,12 +27,13 @@ interface JerseyProps {
 
 const sizeMap = {
   sm: {
-    jersey:  "w-10 h-11",
-    collar:  "w-4 h-1.5",
-    number:  "text-sm",
-    name:    "text-[9px] max-w-[40px]",
+    jersey:  "w-6 h-7",
+    collar:  "w-3 h-1",
+    number:  "text-xs",
+    name:    "text-[4px] max-w-[20px]",
     shadow:  "shadow-[1px_1px_0_#0f172a,2px_2px_0_#0f172a]",
     badge:   "w-3.5 h-3.5 text-[8px]",
+    rounded: "rounded-t-xl rounded-b-sm",
   },
   md: {
     jersey:  "w-12 h-14",
@@ -41,6 +42,7 @@ const sizeMap = {
     name:    "text-xs max-w-[48px]",
     shadow:  "shadow-[1px_1px_0_#0f172a,2px_2px_0_#0f172a,3px_3px_0_#0f172a,4px_4px_0_#0f172a]",
     badge:   "w-4 h-4 text-[9px]",
+    rounded: "rounded-t-md rounded-b-sm",
   },
   lg: {
     jersey:  "w-16 h-18",
@@ -49,6 +51,7 @@ const sizeMap = {
     name:    "text-sm max-w-[64px]",
     shadow:  "shadow-[1px_1px_0_#0f172a,2px_2px_0_#0f172a,3px_3px_0_#0f172a,4px_4px_0_#0f172a,5px_5px_0_#0f172a,6px_6px_0_#0f172a]",
     badge:   "w-5 h-5 text-xs",
+    rounded: "rounded-t-xl rounded-b-sm",
   },
 };
 
@@ -97,7 +100,7 @@ export function Jersey({
       <div
         className={`
           ${s.jersey} ${s.shadow}
-          rounded-t-xl rounded-b-sm border-2 border-slate-900
+           border-2 border-slate-900
           flex items-center justify-center relative overflow-hidden
           transition-transform
           ${onClick ? "hover:scale-105 active:scale-95" : ""}
