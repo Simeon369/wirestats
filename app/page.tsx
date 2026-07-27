@@ -3,16 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Fredoka, Nunito } from "next/font/google";
-import { Jersey } from "@/components/ui/Jersey";
+import Link from "next/link";
 
 const fredoka = Fredoka({ variable: "--font-fredoka", subsets: ["latin"] });
 const nunito = Nunito({ variable: "--font-nunito", subsets: ["latin"] });
-
-type Player = {
-  id: string;
-  number: string;
-  name: string;
-};
 
 type GameRow = {
   id: string;
@@ -23,163 +17,37 @@ type GameRow = {
   team_b_color: string;
   score_a: number;
   score_b: number;
-  fouls_a: number;
-  fouls_b: number;
-  roster_active_a: Player[];
-  roster_active_b: Player[];
-  roster_bench_a: Player[];
-  roster_bench_b: Player[];
-  period: number;
-  clock_seconds: number;
-  is_running: boolean;
+  start_time: string | null;
 };
 
-type StatEvent = {
-  id: string;
-  game_id: string;
-  event_type: string;
-  points: number;
-  period: number;
-  clock_snapshot: string | null;
-  team: string | null;
-  player_name: string | null;
-  player_number: string | null;
-  player_out_name: string | null;
-  player_out_number: string | null;
-  created_at: string;
-};
-
-function formatClock(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
-function periodLabel(period: number, totalPeriods: number): string {
-  if (period > totalPeriods) return `OT${period - totalPeriods}`;
-  return `${totalPeriods === 4 ? "Q" : "H"}${period}`;
-}
-
-function eventLabel(event: StatEvent): string {
-  switch (event.event_type) {
-    case "2pt": return "🏀2";
-    case "3pt": return "🏀3";
-    case "ft": return "🏀1";
-    case "foul": return "🚨";
-    case "sub": return " ";
-    default: return event.event_type;
-  }
-}
-
-export default function LiveScoreboard() {
-  const [game, setGame] = useState<GameRow | null>(null);
-  const [events, setEvents] = useState<StatEvent[]>([]);
-  const [displayClock, setDisplayClock] = useState(0);
+export default function HomePage() {
+  const [games, setGames] = useState<GameRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [noGame, setNoGame] = useState(false);
 
-  // Load the most recent active game
   useEffect(() => {
-    async function loadGame() {
-      if (!supabase) { setNoGame(true); setLoading(false); return; }
+    async function loadGames() {
+      if (!supabase) return;
 
       const { data, error } = await supabase
         .from("games")
         .select("*")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+        .order("created_at", { ascending: false });
 
-      if (error || !data) {
-        setNoGame(true);
-        setLoading(false);
-        return;
+      if (data) {
+        setGames(data as GameRow[]);
       }
-      setGame(data as GameRow);
-      setDisplayClock(data.clock_seconds);
       setLoading(false);
-
-      const { data: evData } = await supabase
-        .from("stat_events")
-        .select("*")
-        .eq("game_id", data.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (evData) setEvents(evData as StatEvent[]);
-
-      const gameChannel = supabase
-        .channel(`game-${data.id}`)
-        .on("postgres_changes", {
-          event: "UPDATE",
-          schema: "public",
-          table: "games",
-          filter: `id=eq.${data.id}`,
-        }, (payload) => {
-          const updated = payload.new as GameRow;
-          setGame((prev) => {
-            if (prev) {
-              setDisplayClock((currentClock) => {
-                if (!updated.is_running) return updated.clock_seconds;
-                if (!prev.is_running && updated.is_running) return updated.clock_seconds;
-                if (Math.abs(currentClock - updated.clock_seconds) > 3) return updated.clock_seconds;
-                return currentClock;
-              });
-            } else {
-              setDisplayClock(updated.clock_seconds);
-            }
-            return updated;
-          });
-        })
-        .on("postgres_changes", {
-          event: "INSERT",
-          schema: "public",
-          table: "stat_events",
-          filter: `game_id=eq.${data.id}`,
-        }, (payload) => {
-          setEvents((prev) => [payload.new as StatEvent, ...prev].slice(0, 20));
-        })
-        .subscribe();
-
-      return () => { supabase.removeChannel(gameChannel); };
     }
-
-    loadGame();
+    loadGames();
   }, []);
-
-  // Client-side clock tick when is_running
-  useEffect(() => {
-    if (!game?.is_running) return;
-    const interval = setInterval(() => {
-      setDisplayClock((s) => (s > 0 ? s - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [game?.is_running]);
-
-  const totalPeriods = 4;
 
   if (loading) {
     return (
       <div className={`${fredoka.variable} ${nunito.variable} min-h-screen bg-slate-900 flex items-center justify-center`}>
-        <p className="font-fredoka text-3xl text-slate-400 uppercase tracking-widest animate-pulse">Loading...</p>
+        <p className="font-fredoka text-3xl text-slate-400 uppercase tracking-widest animate-pulse">Loading Matches...</p>
       </div>
     );
   }
-
-  if (noGame || !game) {
-    return (
-      <div className={`${fredoka.variable} ${nunito.variable} min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-6`}>
-        <h1 className="font-fredoka text-4xl md:text-6xl font-black tracking-widest text-white">
-          Wire<span className="text-[#65d421] ml-2" style={{ textShadow: "1px 1px 0 #1b630a,2px 2px 0 #1b630a,3px 3px 0 #1b630a,4px 4px 0 #1b630a", WebkitTextStroke: "1px #1b630a" }}>Stats</span>
-        </h1>
-        <p className="font-nunito text-lg md:text-xl text-slate-400 font-bold uppercase tracking-widest text-center px-4">No live game right now.</p>
-        <p className="font-nunito text-sm text-slate-600 text-center px-4">Check back when a match is in progress.</p>
-      </div>
-    );
-  }
-
-  const per = periodLabel(game.period, totalPeriods);
-  const isFinished = game.status === "finished";
 
   return (
     <div className={`${fredoka.variable} ${nunito.variable} min-h-screen bg-slate-900 flex flex-col`}>
@@ -189,165 +57,60 @@ export default function LiveScoreboard() {
         </h1>
       </header>
 
-      <main className="flex flex-col items-center justify-start flex-1 px-4 sm:px-6 py-6 sm:py-8 gap-6 max-w-3xl mx-auto w-full">
-        {/* Row: Period | Clock | Status */}
-        <div className="flex items-center justify-between w-full px-2">
-          <div className="flex-1 flex justify-start">
-            <span className="font-fredoka text-2xl font-black uppercase tracking-widest text-slate-400">{per}</span>
-          </div>
-          
-          <div className={`font-fredoka text-4xl sm:text-8xl font-black tracking-widest px-6 sm:px-8 py-2 border-4 border-slate-900 ${game.is_running ? "bg-slate-900 text-[#65d421] shadow-[4px_4px_0_#65d421]" : "bg-[#65d421] text-slate-900 shadow-[4px_4px_0_#0f172a]"}`}>
-            {formatClock(displayClock)}
-          </div>
-
-          <div className="flex-1 flex justify-end">
-            {isFinished ? (
-              <span className="font-nunito text-lg font-black text-red-400 uppercase tracking-widest border-2 border-red-600 px-2 py-1 animate-pulse">FINAL</span>
-            ) : game.is_running ? (
-              <div className="flex gap-1 animate-pulse">
-                <div className="w-3 h-8 bg-[#65d421]"></div>
-                <div className="w-3 h-8 bg-[#65d421]"></div>
-              </div>
-            ) : (
-              <div className="flex gap-1">
-                <div className="w-3 h-8 bg-slate-500"></div>
-                <div className="w-3 h-8 bg-slate-500"></div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Score panel */}
-        <div className="w-full border-4 border-slate-900 bg-white shadow-[8px_8px_0_#0f172a] p-4 flex flex-col gap-6 mt-2">
-          {/* Top Row: Team Names and Fouls */}
-          <div className="flex justify-between items-end gap-4">
-            <div className="flex flex-col items-center flex-1 w-0">
-              <span className="font-nunito text-xs font-bold text-slate-500 mb-1 flex items-center gap-1 min-h-[16px]">
-                {Array.from({ length: game.fouls_a ?? 0 }).map((_, i) => (
-                  <span key={i} className="text-[10px]">🚨</span>
-                ))}
-              </span>
-              <span
-                className="font-fredoka text-md font-black uppercase tracking-widest px-3 py-1 border-2 border-slate-900 text-center w-full truncate"
-                style={{ backgroundColor: game.team_a_color, color: game.team_a_color.toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff" }}
-              >
-                {game.team_a_name}
-              </span>
-            </div>
-            <div className="flex flex-col items-center flex-1 w-0">
-              <span className="font-nunito text-xs font-bold text-slate-500 mb-1 flex items-center gap-1 min-h-[16px]">
-                {Array.from({ length: game.fouls_b ?? 0 }).map((_, i) => (
-                  <span key={i} className="text-[10px]">🚨</span>
-                ))}
-              </span>
-              <span
-                className="font-fredoka text-md font-black uppercase tracking-widest px-3 py-1 border-2 border-slate-900 text-center w-full truncate"
-                style={{ backgroundColor: game.team_b_color, color: game.team_b_color.toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff" }}
-              >
-                {game.team_b_name}
-              </span>
-            </div>
-          </div>
-
-          {/* Middle Row: Scores */}
-          <div className="flex justify-between items-center px-4 sm:px-6">
-            <span className="font-fredoka text-7xl font-black text-slate-900 leading-none">{game.score_a}</span>
-            <span className="font-fredoka text-xl font-black text-slate-300">VS</span>
-            <span className="font-fredoka text-7xl font-black text-slate-900 leading-none">{game.score_b}</span>
-          </div>
-          
-          {/* Bottom Row: Rosters */}
-          <div className="flex flex-col gap-3 mt-2">
-            {/* Active Players */}
-            <div className="flex justify-between">
-              <div className="flex gap-1 flex-wrap w-[45%]">
-                {(game.roster_active_a || []).map(p => (
-                  <div key={p.id} className="scale-75 origin-top-left">
-                    <Jersey number={p.number} colorHex={game.team_a_color} size="sm" />
-                  </div>
-                ))}{(game.roster_bench_a || []).map(p => (
-                  <div key={p.id} className="scale-75 origin-top-left">
-                    <Jersey number={p.number} colorHex={game.team_a_color} size="sm" dimmed />
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-1 flex-wrap w-[45%] justify-end">
-                {(game.roster_active_b || []).map(p => (
-                  <div key={p.id} className="scale-75 origin-top-right">
-                    <Jersey number={p.number} colorHex={game.team_b_color} size="sm" />
-                  </div>
-                ))}{(game.roster_bench_b || []).map(p => (
-                  <div key={p.id} className="scale-75 origin-top-right">
-                    <Jersey number={p.number} colorHex={game.team_b_color} size="sm" dimmed />
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            
-          </div>
-        </div>
-
-        {/* Play-by-play feed */}
-        {events.length > 0 && (
-          <div className="w-full border-4 border-slate-700 bg-slate-800 mt-4">
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <h2 className="font-fredoka text-xl font-black uppercase tracking-widest text-slate-400">Play-by-Play</h2>
-              
-            </div>
-            <div className="overflow-y-auto" style={{ maxHeight: '280px' }}>
-              <div className="flex flex-col px-4 pb-4">
-                {events.map((ev) => (
-                  <div key={ev.id} className="flex items-center gap-3 py-2 border-b border-slate-700 last:border-0">
-                    <div className="flex items-center gap-2">
-                      {ev.player_number ? (
-                        <Jersey
-                          number={ev.player_number}
-                          colorHex={ev.team === "A" ? game.team_a_color : game.team_b_color}
-                          size="sm"
-                        />
-                      ) : (
-                        <span
-                          className="font-fredoka text-xs font-black uppercase px-2 py-1 border text-white"
-                          style={{
-                            backgroundColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
-                            borderColor: ev.team === "A" ? game.team_a_color : game.team_b_color,
-                            color: ((ev.team === "A" ? game.team_a_color : game.team_b_color) || "").toLowerCase() === "#ffffff" ? "#0f172a" : "#ffffff",
-                          }}
-                        >
-                          {ev.team === "A" ? game.team_a_name : game.team_b_name}
-                        </span>
-                      )}
-
-                      {ev.event_type === "sub" && ev.player_out_number && (
-                        <>
-                          <span className="text-slate-500 font-bold px-1">🔄</span>
-                          <Jersey
-                            number={ev.player_out_number}
-                            colorHex={ev.team === "A" ? game.team_a_color : game.team_b_color}
-                            size="sm"
-                            dimmed
-                          />
-                        </>
-                      )}
-                    </div>
-                    <div className="flex flex-col flex-1">
-                      <span className="font-nunito text-sm font-bold text-white">{eventLabel(ev)}</span>
-                      {ev.player_name && (
-                        <span className="font-nunito text-xs text-slate-400">
-                          {ev.player_name}
-                          {ev.event_type === "sub" && ev.player_out_name ? ` (for ${ev.player_out_name})` : ""}
-                        </span>
-                      )}
-                    </div>
-                    {ev.points > 0 && (
-                      <span className="font-fredoka text-sm font-black text-[#65d421]">+{ev.points}</span>
+      <main className="flex flex-col flex-1 px-4 sm:px-6 py-6 sm:py-8 max-w-5xl mx-auto w-full gap-6">
+        <h2 className="font-fredoka text-2xl text-white uppercase tracking-widest">All Matches</h2>
+        
+        {games.length === 0 ? (
+          <p className="font-nunito text-lg text-slate-400 text-center mt-10">No matches found.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {games.map((game) => (
+              <Link key={game.id} href={`/game/${game.id}`}>
+                <div className="bg-white border-4 border-slate-900 shadow-[6px_6px_0_#0f172a] p-4 flex flex-col gap-4 hover:-translate-y-1 hover:shadow-[8px_8px_0_#0f172a] transition-all cursor-pointer h-full">
+                  
+                  {/* Status Bar */}
+                  <div className="flex justify-between items-center border-b-2 border-slate-200 pb-2">
+                    <span className={`font-fredoka text-sm uppercase tracking-widest font-black px-2 py-1 ${
+                      game.status === 'live' || game.status === 'active' ? 'bg-[#65d421] text-slate-900' :
+                      game.status === 'scheduled' ? 'bg-blue-400 text-slate-900' :
+                      'bg-slate-300 text-slate-700'
+                    }`}>
+                      {game.status === 'active' ? 'LIVE' : game.status}
+                    </span>
+                    
+                    {game.status === 'scheduled' && game.start_time && (
+                      <span className="font-nunito text-xs font-bold text-slate-500">
+                        {new Date(game.start_time).toLocaleString(undefined, {
+                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </span>
                     )}
-                    <span className="font-mono text-xs text-slate-500">{ev.clock_snapshot ?? ""}</span>
                   </div>
-                ))}
-              </div>
-            </div>
+
+                  {/* Teams and Scores */}
+                  <div className="flex flex-col gap-3 flex-1 justify-center">
+                    {/* Team A */}
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="w-4 h-4 border border-slate-900 shrink-0" style={{ backgroundColor: game.team_a_color }}></div>
+                        <span className="font-fredoka text-lg font-black uppercase truncate text-slate-800">{game.team_a_name}</span>
+                      </div>
+                      <span className="font-fredoka text-2xl font-black text-slate-900">{game.score_a}</span>
+                    </div>
+
+                    {/* Team B */}
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="w-4 h-4 border border-slate-900 shrink-0" style={{ backgroundColor: game.team_b_color }}></div>
+                        <span className="font-fredoka text-lg font-black uppercase truncate text-slate-800">{game.team_b_name}</span>
+                      </div>
+                      <span className="font-fredoka text-2xl font-black text-slate-900">{game.score_b}</span>
+                    </div>
+                  </div>
+
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </main>
