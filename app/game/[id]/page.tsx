@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabase";
 import { Fredoka, Nunito } from "next/font/google";
 import { Jersey } from "@/components/ui/Jersey";
@@ -71,7 +71,8 @@ function eventLabel(event: StatEvent): string {
   }
 }
 
-export default function GamePage({ params }: { params: { id: string } }) {
+export default function GamePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [game, setGame] = useState<GameRow | null>(null);
   const [events, setEvents] = useState<StatEvent[]>([]);
   const [displayClock, setDisplayClock] = useState(0);
@@ -86,7 +87,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
       const { data, error } = await supabase
         .from("games")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", id)
         .single();
 
       if (error || !data) {
@@ -143,7 +144,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
     }
 
     loadGame();
-  }, [params.id]);
+  }, [id]);
 
   // Client-side clock tick when is_running
   useEffect(() => {
