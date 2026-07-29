@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Fredoka, Nunito } from "next/font/google";
 import { Jersey } from "@/components/ui/Jersey";
@@ -12,6 +12,15 @@ type Player = {
   id: string;
   number: string;
   name: string;
+};
+
+type PlayerStats = {
+  id: string;
+  team: string;
+  name: string;
+  number: string;
+  points: number;
+  threes: number;
 };
 
 type GameRow = {
@@ -75,6 +84,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   const { id } = use(params);
   const [game, setGame] = useState<GameRow | null>(null);
   const [events, setEvents] = useState<StatEvent[]>([]);
+  const [allEvents, setAllEvents] = useState<StatEvent[]>([]);
   const [displayClock, setDisplayClock] = useState(0);
   const [loading, setLoading] = useState(true);
   const [noGame, setNoGame] = useState(false);
@@ -103,9 +113,12 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         .from("stat_events")
         .select("*")
         .eq("game_id", data.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (evData) setEvents(evData as StatEvent[]);
+        .order("created_at", { ascending: false });
+      
+      if (evData) {
+        setAllEvents(evData as StatEvent[]);
+        setEvents((evData as StatEvent[]).slice(0, 20));
+      }
 
       const gameChannel = supabase
         .channel(`game-${data.id}`)
@@ -136,7 +149,9 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
           table: "stat_events",
           filter: `game_id=eq.${data.id}`,
         }, (payload) => {
-          setEvents((prev) => [payload.new as StatEvent, ...prev].slice(0, 20));
+          const newEv = payload.new as StatEvent;
+          setAllEvents((prev) => [newEv, ...prev]);
+          setEvents((prev) => [newEv, ...prev].slice(0, 20));
         })
         .subscribe();
 
@@ -154,6 +169,34 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
     }, 1000);
     return () => clearInterval(interval);
   }, [game?.is_running]);
+
+  const leaderboard = useMemo(() => {
+    const stats: Record<string, PlayerStats> = {};
+    for (const ev of allEvents) {
+      if (ev.points > 0 && ev.player_number && ev.team) {
+        const key = `${ev.team}-${ev.player_number}`;
+        if (!stats[key]) {
+          stats[key] = {
+            id: key,
+            team: ev.team,
+            name: ev.player_name || `Player ${ev.player_number}`,
+            number: ev.player_number,
+            points: 0,
+            threes: 0,
+          };
+        }
+        stats[key].points += ev.points;
+        if (ev.event_type === "3pt") {
+          stats[key].threes += 1;
+        }
+      }
+    }
+    
+    const arr = Object.values(stats);
+    const teamA = arr.filter(p => p.team === "A").sort((a, b) => b.points - a.points).slice(0, 3);
+    const teamB = arr.filter(p => p.team === "B").sort((a, b) => b.points - a.points).slice(0, 3);
+    return { teamA, teamB };
+  }, [allEvents]);
 
   const totalPeriods = 4;
 
@@ -286,6 +329,66 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
             
           </div>
         </div>
+
+        {/* Leaderboard */}
+        {(leaderboard.teamA.length > 0 || leaderboard.teamB.length > 0) && (
+          <div className="w-full border-4 border-slate-700 bg-slate-800 mt-4 p-4">
+            <h2 className="font-fredoka text-xl font-black uppercase tracking-widest text-slate-400 mb-4">Top Performers</h2>
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Team A Leaderboard */}
+              <div className="flex-1">
+                <h3 className="font-fredoka text-md font-black uppercase text-white mb-2" style={{ color: game.team_a_color }}>{game.team_a_name}</h3>
+                <div className="flex flex-col gap-2">
+                  {leaderboard.teamA.map(p => (
+                    <div key={p.id} className="flex justify-between items-center bg-slate-700 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <Jersey number={p.number} colorHex={game.team_a_color} size="sm" />
+                        <span className="font-nunito font-bold text-white text-sm">{p.name}</span>
+                      </div>
+                      <div className="flex gap-4 text-sm font-fredoka font-black">
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">PTS</span>
+                          <span className="text-[#65d421]">{p.points}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">3PT</span>
+                          <span className="text-white">{p.threes}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {leaderboard.teamA.length === 0 && <span className="text-sm text-slate-500 font-nunito">No stats yet</span>}
+                </div>
+              </div>
+              
+              {/* Team B Leaderboard */}
+              <div className="flex-1">
+                <h3 className="font-fredoka text-md font-black uppercase text-white mb-2" style={{ color: game.team_b_color }}>{game.team_b_name}</h3>
+                <div className="flex flex-col gap-2">
+                  {leaderboard.teamB.map(p => (
+                    <div key={p.id} className="flex justify-between items-center bg-slate-700 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <Jersey number={p.number} colorHex={game.team_b_color} size="sm" />
+                        <span className="font-nunito font-bold text-white text-sm">{p.name}</span>
+                      </div>
+                      <div className="flex gap-4 text-sm font-fredoka font-black">
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">PTS</span>
+                          <span className="text-[#65d421]">{p.points}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">3PT</span>
+                          <span className="text-white">{p.threes}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {leaderboard.teamB.length === 0 && <span className="text-sm text-slate-500 font-nunito">No stats yet</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Play-by-play feed */}
         {events.length > 0 && (
