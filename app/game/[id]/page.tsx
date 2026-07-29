@@ -330,66 +330,6 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
           </div>
         </div>
 
-        {/* Leaderboard */}
-        {(leaderboard.teamA.length > 0 || leaderboard.teamB.length > 0) && (
-          <div className="w-full border-4 border-slate-700 bg-slate-800 mt-4 p-4">
-            <h2 className="font-fredoka text-xl font-black uppercase tracking-widest text-slate-400 mb-4">Top Performers</h2>
-            <div className="flex flex-col md:flex-row gap-6">
-              {/* Team A Leaderboard */}
-              <div className="flex-1">
-                <h3 className="font-fredoka text-md font-black uppercase text-white mb-2" style={{ color: game.team_a_color }}>{game.team_a_name}</h3>
-                <div className="flex flex-col gap-2">
-                  {leaderboard.teamA.map(p => (
-                    <div key={p.id} className="flex justify-between items-center bg-slate-700 p-2 rounded">
-                      <div className="flex items-center gap-2">
-                        <Jersey number={p.number} colorHex={game.team_a_color} size="sm" />
-                        <span className="font-nunito font-bold text-white text-sm">{p.name}</span>
-                      </div>
-                      <div className="flex gap-4 text-sm font-fredoka font-black">
-                        <div className="flex flex-col items-center">
-                          <span className="text-slate-400 text-[10px]">PTS</span>
-                          <span className="text-[#65d421]">{p.points}</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-slate-400 text-[10px]">3PT</span>
-                          <span className="text-white">{p.threes}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {leaderboard.teamA.length === 0 && <span className="text-sm text-slate-500 font-nunito">No stats yet</span>}
-                </div>
-              </div>
-              
-              {/* Team B Leaderboard */}
-              <div className="flex-1">
-                <h3 className="font-fredoka text-md font-black uppercase text-white mb-2" style={{ color: game.team_b_color }}>{game.team_b_name}</h3>
-                <div className="flex flex-col gap-2">
-                  {leaderboard.teamB.map(p => (
-                    <div key={p.id} className="flex justify-between items-center bg-slate-700 p-2 rounded">
-                      <div className="flex items-center gap-2">
-                        <Jersey number={p.number} colorHex={game.team_b_color} size="sm" />
-                        <span className="font-nunito font-bold text-white text-sm">{p.name}</span>
-                      </div>
-                      <div className="flex gap-4 text-sm font-fredoka font-black">
-                        <div className="flex flex-col items-center">
-                          <span className="text-slate-400 text-[10px]">PTS</span>
-                          <span className="text-[#65d421]">{p.points}</span>
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-slate-400 text-[10px]">3PT</span>
-                          <span className="text-white">{p.threes}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {leaderboard.teamB.length === 0 && <span className="text-sm text-slate-500 font-nunito">No stats yet</span>}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Play-by-play feed */}
         {events.length > 0 && (
           <div className="w-full border-4 border-slate-700 bg-slate-800 mt-4">
@@ -448,6 +388,66 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                     <span className="font-mono text-xs text-slate-500">{ev.clock_snapshot ?? ""}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Leaderboard */}
+        {(leaderboard.teamA.length > 0 || leaderboard.teamB.length > 0) && (
+          <div className="w-full border-4 border-slate-700 bg-slate-800 mt-4 p-4">
+            <h2 className="font-fredoka text-xl font-black uppercase tracking-widest text-slate-400 mb-4">Top Performers</h2>
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Team A Leaderboard */}
+              <div className="flex-1">
+                <h3 className="font-fredoka text-md font-black uppercase text-white mb-2" style={{ color: game.team_a_color }}>{game.team_a_name}</h3>
+                <div className="flex flex-col gap-2">
+                  {leaderboard.teamA.map(p => (
+                    <div key={p.id} className="flex justify-between items-center bg-slate-700 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <Jersey number={p.number} colorHex={game.team_a_color} size="sm" />
+                        <span className="font-nunito font-bold text-white text-sm">{p.name}</span>
+                      </div>
+                      <div className="flex gap-4 text-sm font-fredoka font-black">
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">PTS</span>
+                          <span className="text-[#65d421]">{p.points}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">3PT</span>
+                          <span className="text-white">{p.threes}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {leaderboard.teamA.length === 0 && <span className="text-sm text-slate-500 font-nunito">No stats yet</span>}
+                </div>
+              </div>
+              
+              {/* Team B Leaderboard */}
+              <div className="flex-1">
+                <h3 className="font-fredoka text-md font-black uppercase text-white mb-2" style={{ color: game.team_b_color }}>{game.team_b_name}</h3>
+                <div className="flex flex-col gap-2">
+                  {leaderboard.teamB.map(p => (
+                    <div key={p.id} className="flex justify-between items-center bg-slate-700 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <Jersey number={p.number} colorHex={game.team_b_color} size="sm" />
+                        <span className="font-nunito font-bold text-white text-sm">{p.name}</span>
+                      </div>
+                      <div className="flex gap-4 text-sm font-fredoka font-black">
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">PTS</span>
+                          <span className="text-[#65d421]">{p.points}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">3PT</span>
+                          <span className="text-white">{p.threes}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {leaderboard.teamB.length === 0 && <span className="text-sm text-slate-500 font-nunito">No stats yet</span>}
+                </div>
               </div>
             </div>
           </div>
