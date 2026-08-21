@@ -34,6 +34,8 @@ type TournamentRow = {
   created_at: string;
   category: string | null;
   venue: string | null;
+  start_date: string | null;
+  duration_days: number | null;
 };
 
 function formatClock(totalSeconds: number): string {
