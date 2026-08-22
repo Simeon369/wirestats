@@ -21,6 +21,8 @@ export type PlayerStatsSummary = {
   full_name: string;
   jersey_name: string;
   position: 'PG' | 'SG' | 'SF' | 'PF' | 'C';
+  gender?: string | null;
+  created_at?: string;
   games_played: number;
   total_points: number;
   three_pointers_made: number;
