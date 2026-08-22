@@ -116,15 +116,7 @@ export default function TournamentHub() {
             {tournament.name}
           </h1>
         </div>
-        {tournament.status === "ACTIVE" && (
-          <span className="shrink-0 font-fredoka text-[10px] font-black uppercase tracking-widest bg-[#65d421] text-slate-900 px-2 py-1 flex items-center gap-1">
-            <span className="flex gap-[2px] animate-pulse">
-              <span className="w-1 h-2.5 bg-slate-900 block" />
-              <span className="w-1 h-2.5 bg-slate-900 block" />
-            </span>
-            Live
-          </span>
-        )}
+        
       </header>
 
       {/* ─── Tab Switcher ─── */}
