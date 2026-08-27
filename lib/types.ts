@@ -27,6 +27,10 @@ export type PlayerStatsSummary = {
   total_points: number;
   three_pointers_made: number;
   total_fouls: number;
+  total_rebounds: number;
+  total_blocks: number;
+  total_steals: number;
+  total_assists: number;
 };
 
 export type Tournament = {
@@ -65,4 +69,8 @@ export type TournamentPlayerLeaderboard = {
   total_points: number;
   three_pointers_made: number;
   total_fouls: number;
+  total_rebounds: number;
+  total_blocks: number;
+  total_steals: number;
+  total_assists: number;
 };

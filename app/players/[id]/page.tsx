@@ -55,6 +55,10 @@ export default function PlayerDetailsPage() {
   }
 
   const ppg = player.games_played > 0 ? (player.total_points / player.games_played).toFixed(1) : "0.0";
+  const rpg = player.games_played > 0 ? (player.total_rebounds / player.games_played).toFixed(1) : "0.0";
+  const apg = player.games_played > 0 ? (player.total_assists / player.games_played).toFixed(1) : "0.0";
+  const spg = player.games_played > 0 ? (player.total_steals / player.games_played).toFixed(1) : "0.0";
+  const bpg = player.games_played > 0 ? (player.total_blocks / player.games_played).toFixed(1) : "0.0";
 
   return (
     <div className={`${fredoka.variable} ${nunito.variable} min-h-screen bg-slate-900 flex flex-col`}>
@@ -98,7 +102,7 @@ export default function PlayerDetailsPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="bg-slate-800 border-4 border-slate-700 p-5 flex flex-col gap-1 items-center justify-center text-center shadow-[4px_4px_0_#334155] hover:-translate-y-1 transition-transform">
             <span className="font-nunito text-xs text-slate-400 font-bold uppercase tracking-widest">Games Played</span>
             <span className="font-fredoka text-4xl font-black text-white">{player.games_played}</span>
@@ -115,11 +119,26 @@ export default function PlayerDetailsPage() {
             <span className="font-nunito text-xs text-slate-400 font-bold uppercase tracking-widest">3-Pointers Made</span>
             <span className="font-fredoka text-4xl font-black text-white">{player.three_pointers_made}</span>
           </div>
-        </div>
-
-        <div className="bg-slate-800 border-4 border-red-900 p-6 flex flex-col gap-2 items-center justify-center text-center shadow-[6px_6px_0_#7f1d1d] hover:-translate-y-1 transition-transform mt-2">
-          <span className="font-nunito text-sm text-red-400 font-bold uppercase tracking-widest">Total Fouls Committed</span>
-          <span className="font-fredoka text-5xl font-black text-red-500">{player.total_fouls}</span>
+          <div className="bg-slate-800 border-4 border-amber-900 p-5 flex flex-col gap-1 items-center justify-center text-center shadow-[4px_4px_0_#78350f] hover:-translate-y-1 transition-transform">
+            <span className="font-nunito text-xs text-amber-400 font-bold uppercase tracking-widest">Rebounds ({rpg}/g)</span>
+            <span className="font-fredoka text-4xl font-black text-amber-400">{player.total_rebounds}</span>
+          </div>
+          <div className="bg-slate-800 border-4 border-orange-900 p-5 flex flex-col gap-1 items-center justify-center text-center shadow-[4px_4px_0_#7c2d12] hover:-translate-y-1 transition-transform">
+            <span className="font-nunito text-xs text-orange-400 font-bold uppercase tracking-widest">Blocks ({bpg}/g)</span>
+            <span className="font-fredoka text-4xl font-black text-orange-400">{player.total_blocks}</span>
+          </div>
+          <div className="bg-slate-800 border-4 border-teal-900 p-5 flex flex-col gap-1 items-center justify-center text-center shadow-[4px_4px_0_#134e4a] hover:-translate-y-1 transition-transform">
+            <span className="font-nunito text-xs text-teal-400 font-bold uppercase tracking-widest">Steals ({spg}/g)</span>
+            <span className="font-fredoka text-4xl font-black text-teal-400">{player.total_steals}</span>
+          </div>
+          <div className="bg-slate-800 border-4 border-indigo-900 p-5 flex flex-col gap-1 items-center justify-center text-center shadow-[4px_4px_0_#312e81] hover:-translate-y-1 transition-transform">
+            <span className="font-nunito text-xs text-indigo-400 font-bold uppercase tracking-widest">Assists ({apg}/g)</span>
+            <span className="font-fredoka text-4xl font-black text-indigo-400">{player.total_assists}</span>
+          </div>
+          <div className="bg-slate-800 border-4 border-red-900 p-5 flex flex-col gap-1 items-center justify-center text-center shadow-[4px_4px_0_#7f1d1d] hover:-translate-y-1 transition-transform">
+            <span className="font-nunito text-xs text-red-400 font-bold uppercase tracking-widest">Total Fouls</span>
+            <span className="font-fredoka text-4xl font-black text-red-500">{player.total_fouls}</span>
+          </div>
         </div>
 
       </main>

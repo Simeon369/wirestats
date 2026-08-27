@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use, useMemo } from "react";
+import { useEffect, useRef, useState, use, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { Fredoka, Nunito } from "next/font/google";
 import { Jersey } from "@/components/ui/Jersey";
@@ -21,6 +21,10 @@ type PlayerStats = {
   number: string;
   points: number;
   threes: number;
+  rebounds: number;
+  blocks: number;
+  steals: number;
+  assists: number;
 };
 
 type GameRow = {
@@ -71,11 +75,15 @@ function periodLabel(period: number, totalPeriods: number): string {
 
 function eventLabel(event: StatEvent): string {
   switch (event.event_type) {
-    case "2pt": return "🏀2";
-    case "3pt": return "🏀3";
-    case "ft": return "🏀1";
-    case "foul": return "🚨";
-    case "sub": return " ";
+    case "2pt": return "🏀 +2";
+    case "3pt": return "🏀 +3";
+    case "ft":  return "🏀 +1";
+    case "foul": return "🚨 Foul";
+    case "reb":  return "🙌 Reb";
+    case "blk":  return "🚫 Blk";
+    case "stl":  return "🥷🏻 Stl";
+    case "ast":  return "🤝 Ast";
+    case "sub":  return " ";
     default: return event.event_type;
   }
 }
@@ -89,8 +97,13 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   const [loading, setLoading] = useState(true);
   const [noGame, setNoGame] = useState(false);
 
+  // Holds the active realtime channel so cleanup always has a reference
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
   // Load the specific game by ID
   useEffect(() => {
+    let cancelled = false;
+
     async function loadGame() {
       if (!supabase) { setNoGame(true); setLoading(false); return; }
 
@@ -99,6 +112,8 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         .select("*")
         .eq("id", id)
         .single();
+
+      if (cancelled) return; // component unmounted while awaiting
 
       if (error || !data) {
         setNoGame(true);
@@ -114,13 +129,18 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         .select("*")
         .eq("game_id", data.id)
         .order("created_at", { ascending: false });
-      
+
+      if (cancelled) return;
+
       if (evData) {
         setAllEvents(evData as StatEvent[]);
         setEvents((evData as StatEvent[]).slice(0, 20));
       }
 
-      const gameChannel = supabase
+      // Don't open a realtime channel for already-finished games
+      if (data.status === "finished") return;
+
+      const ch = supabase
         .channel(`game-${data.id}`)
         .on("postgres_changes", {
           event: "UPDATE",
@@ -155,10 +175,19 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         })
         .subscribe();
 
-      return () => { supabase.removeChannel(gameChannel); };
+      channelRef.current = ch;
     }
 
     loadGame();
+
+    // Cleanup runs synchronously when id changes or component unmounts
+    return () => {
+      cancelled = true;
+      if (channelRef.current && supabase) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [id]);
 
   // Client-side clock tick when is_running
@@ -173,7 +202,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
   const leaderboard = useMemo(() => {
     const stats: Record<string, PlayerStats> = {};
     for (const ev of allEvents) {
-      if (ev.points > 0 && ev.player_number && ev.team) {
+      if (ev.player_number && ev.team) {
         const key = `${ev.team}-${ev.player_number}`;
         if (!stats[key]) {
           stats[key] = {
@@ -183,18 +212,23 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
             number: ev.player_number,
             points: 0,
             threes: 0,
+            rebounds: 0,
+            blocks: 0,
+            steals: 0,
+            assists: 0,
           };
         }
-        stats[key].points += ev.points;
-        if (ev.event_type === "3pt") {
-          stats[key].threes += 1;
-        }
+        if (ev.points > 0) stats[key].points += ev.points;
+        if (ev.event_type === "3pt") stats[key].threes += 1;
+        if (ev.event_type === "reb") stats[key].rebounds += 1;
+        if (ev.event_type === "blk") stats[key].blocks += 1;
+        if (ev.event_type === "stl") stats[key].steals += 1;
+        if (ev.event_type === "ast") stats[key].assists += 1;
       }
     }
-    
     const arr = Object.values(stats);
-    const teamA = arr.filter(p => p.team === "A").sort((a, b) => b.points - a.points).slice(0, 3);
-    const teamB = arr.filter(p => p.team === "B").sort((a, b) => b.points - a.points).slice(0, 3);
+    const teamA = arr.filter(p => p.team === "A").sort((a, b) => b.points - a.points).slice(0, 5);
+    const teamB = arr.filter(p => p.team === "B").sort((a, b) => b.points - a.points).slice(0, 5);
     return { teamA, teamB };
   }, [allEvents]);
 
@@ -403,12 +437,12 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                 <h3 className="font-fredoka text-md font-black uppercase text-white mb-2" style={{ color: game.team_a_color }}>{game.team_a_name}</h3>
                 <div className="flex flex-col gap-2">
                   {leaderboard.teamA.map(p => (
-                    <div key={p.id} className="flex justify-between items-center bg-slate-700 p-2 rounded">
+                    <div key={p.id} className="flex flex-col bg-slate-700 p-2 rounded">
                       <div className="flex items-center gap-2">
                         <Jersey number={p.number} colorHex={game.team_a_color} size="sm" />
                         <span className="font-nunito font-bold text-white text-sm">{p.name}</span>
                       </div>
-                      <div className="flex gap-4 text-sm font-fredoka font-black">
+                      <div className="flex justify-end gap-3 text-sm font-fredoka font-black">
                         <div className="flex flex-col items-center">
                           <span className="text-slate-400 text-[10px]">PTS</span>
                           <span className="text-[#65d421]">{p.points}</span>
@@ -416,6 +450,22 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                         <div className="flex flex-col items-center">
                           <span className="text-slate-400 text-[10px]">3PT</span>
                           <span className="text-white">{p.threes}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">REB</span>
+                          <span className="text-amber-400">{p.rebounds}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">BLK</span>
+                          <span className="text-orange-400">{p.blocks}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">STL</span>
+                          <span className="text-teal-400">{p.steals}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">AST</span>
+                          <span className="text-indigo-400">{p.assists}</span>
                         </div>
                       </div>
                     </div>
@@ -429,12 +479,12 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                 <h3 className="font-fredoka text-md font-black uppercase text-white mb-2" style={{ color: game.team_b_color }}>{game.team_b_name}</h3>
                 <div className="flex flex-col gap-2">
                   {leaderboard.teamB.map(p => (
-                    <div key={p.id} className="flex justify-between items-center bg-slate-700 p-2 rounded">
+                    <div key={p.id} className="flex flex-col bg-slate-700 p-2 rounded">
                       <div className="flex items-center gap-2">
                         <Jersey number={p.number} colorHex={game.team_b_color} size="sm" />
                         <span className="font-nunito font-bold text-white text-sm">{p.name}</span>
                       </div>
-                      <div className="flex gap-4 text-sm font-fredoka font-black">
+                      <div className="flex justify-end gap-3 text-sm font-fredoka font-black">
                         <div className="flex flex-col items-center">
                           <span className="text-slate-400 text-[10px]">PTS</span>
                           <span className="text-[#65d421]">{p.points}</span>
@@ -442,6 +492,22 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
                         <div className="flex flex-col items-center">
                           <span className="text-slate-400 text-[10px]">3PT</span>
                           <span className="text-white">{p.threes}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">REB</span>
+                          <span className="text-amber-400">{p.rebounds}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">BLK</span>
+                          <span className="text-orange-400">{p.blocks}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">STL</span>
+                          <span className="text-teal-400">{p.steals}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-slate-400 text-[10px]">AST</span>
+                          <span className="text-indigo-400">{p.assists}</span>
                         </div>
                       </div>
                     </div>
