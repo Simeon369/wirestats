@@ -15,12 +15,34 @@ const nunito = Nunito({
 
 export const metadata: Metadata = {
   title: "WireStats",
-  description: "WireStats Application",
+  description: "Track Your Stats. Elevate Your Game.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "WireStats",
+  },
+  openGraph: {
+    title: "WireStats",
+    description: "Track Your Stats. Elevate Your Game.",
+    url: "https://wirestats.vercel.app",
+    siteName: "WireStats",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "WireStats - Track Your Stats",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WireStats",
+    description: "Track Your Stats. Elevate Your Game.",
+    images: ["/og-image.jpg"],
   },
 };
 
