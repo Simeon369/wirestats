@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
 import { Fredoka, Nunito } from "next/font/google";
 import Link from "next/link";
 
@@ -214,23 +215,23 @@ function SectionHeader({ title, count, viewAllHref, showViewAll }: { title: stri
 const PREVIEW_COUNT = 3;
 
 export default function HomePage() {
-  const [games, setGames] = useState<GameRow[]>([]);
-  const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      if (!supabase) return;
-      const [{ data: gData }, { data: tData }] = await Promise.all([
-        supabase.from("games").select("*").order("created_at", { ascending: false }),
-        supabase.from("tournaments").select("*").order("created_at", { ascending: false }),
-      ]);
-      if (gData) setGames(gData as GameRow[]);
-      if (tData) setTournaments(tData as TournamentRow[]);
-      setLoading(false);
+  const { data: games = [], isLoading: loadingGames } = useQuery({
+    queryKey: ['games'],
+    queryFn: async () => {
+      const { data } = await supabase.from("games").select("*").order("created_at", { ascending: false });
+      return (data as GameRow[]) || [];
     }
-    load();
-  }, []);
+  });
+
+  const { data: tournaments = [], isLoading: loadingTournaments } = useQuery({
+    queryKey: ['tournaments'],
+    queryFn: async () => {
+      const { data } = await supabase.from("tournaments").select("*").order("created_at", { ascending: false });
+      return (data as TournamentRow[]) || [];
+    }
+  });
+
+  const loading = loadingGames || loadingTournaments;
 
   const sortedTournaments = [...tournaments]
     .filter((t) => t.status !== "DRAFT")

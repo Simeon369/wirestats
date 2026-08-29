@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
 import { Tournament } from "@/lib/types";
 import {
@@ -336,26 +337,17 @@ function DpoyFeaturedCard({ player }: { player: PlayerLeaderboardRow }) {
 
 function LeaderboardPanel({ tournamentId }: { tournamentId: string }) {
   const [activeStat, setActiveStat] = useState<LeaderboardStat>("mvp");
-  const [allRows, setAllRows] = useState<PlayerLeaderboardRow[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchLeaderboard = useCallback(async () => {
-    if (!supabase) return;
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("tournament_player_leaderboard")
-      .select("*")
-      .eq("tournament_id", tournamentId);
-
-    if (!error && data) {
-      setAllRows(data as PlayerLeaderboardRow[]);
+  const { data: allRows = [], isLoading: loading } = useQuery({
+    queryKey: ['tournament_leaderboard', tournamentId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("tournament_player_leaderboard")
+        .select("*")
+        .eq("tournament_id", tournamentId);
+      return (data as PlayerLeaderboardRow[]) || [];
     }
-    setLoading(false);
-  }, [tournamentId]);
-
-  useEffect(() => {
-    fetchLeaderboard();
-  }, [fetchLeaderboard]);
+  });
 
   if (loading) {
     return (
@@ -508,39 +500,33 @@ export default function TournamentHub() {
   const router = useRouter();
   const id = params.id as string;
 
-  const [tournament, setTournament] = useState<Tournament | null>(null);
-  const [games, setGames] = useState<GameRow[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>("matches");
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (id) fetchTournamentData();
-  }, [id]);
-
-  const fetchTournamentData = async () => {
-    setLoading(true);
-    try {
-      const { data: tData } = await supabase
+  const { data: tournament, isLoading: loadingTournament } = useQuery({
+    queryKey: ['tournament', id],
+    queryFn: async () => {
+      const { data } = await supabase
         .from("tournaments")
         .select("*")
         .eq("id", id)
         .single();
+      return (data as Tournament) || null;
+    }
+  });
 
-      if (tData) setTournament(tData);
-
-      const { data: gData } = await supabase
+  const { data: games = [], isLoading: loadingGames } = useQuery({
+    queryKey: ['tournament_games', id],
+    queryFn: async () => {
+      const { data } = await supabase
         .from("games")
         .select("*")
         .eq("tournament_id", id)
         .order("created_at", { ascending: false });
-
-      if (gData) setGames(gData as GameRow[]);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+      return (data as GameRow[]) || [];
     }
-  };
+  });
+
+  const loading = loadingTournament || loadingGames;
 
   const sortedGames = [...games].sort((a, b) => {
     const aLive = a.status === "active" ? 0 : 1;

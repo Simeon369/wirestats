@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, use, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fredoka, Nunito } from "next/font/google";
 import { Jersey } from "@/components/ui/Jersey";
 
@@ -90,105 +91,84 @@ function eventLabel(event: StatEvent): string {
 
 export default function GamePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [game, setGame] = useState<GameRow | null>(null);
-  const [events, setEvents] = useState<StatEvent[]>([]);
-  const [allEvents, setAllEvents] = useState<StatEvent[]>([]);
+  const queryClient = useQueryClient();
+
+  const { data: game, isLoading: loadingGame } = useQuery({
+    queryKey: ['game', id],
+    queryFn: async () => {
+      const { data } = await supabase.from("games").select("*").eq("id", id).single();
+      return (data as GameRow) || null;
+    }
+  });
+
+  const { data: allEvents = [], isLoading: loadingEvents } = useQuery({
+    queryKey: ['stat_events', id],
+    queryFn: async () => {
+      const { data } = await supabase.from("stat_events").select("*").eq("game_id", id).order("created_at", { ascending: false });
+      return (data as StatEvent[]) || [];
+    }
+  });
+
   const [displayClock, setDisplayClock] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [noGame, setNoGame] = useState(false);
+
+  const loading = loadingGame || loadingEvents;
+
+  useEffect(() => {
+    if (game && !game.is_running && displayClock !== game.clock_seconds) {
+      setDisplayClock(game.clock_seconds);
+    }
+  }, [game, displayClock]);
 
   // Holds the active realtime channel so cleanup always has a reference
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Load the specific game by ID
   useEffect(() => {
-    let cancelled = false;
+    if (!supabase || !game) return;
 
-    async function loadGame() {
-      if (!supabase) { setNoGame(true); setLoading(false); return; }
-
-      const { data, error } = await supabase
-        .from("games")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (cancelled) return; // component unmounted while awaiting
-
-      if (error || !data) {
-        setNoGame(true);
-        setLoading(false);
-        return;
-      }
-      setGame(data as GameRow);
-      setDisplayClock(data.clock_seconds);
-      setLoading(false);
-
-      const { data: evData } = await supabase
-        .from("stat_events")
-        .select("*")
-        .eq("game_id", data.id)
-        .order("created_at", { ascending: false });
-
-      if (cancelled) return;
-
-      if (evData) {
-        setAllEvents(evData as StatEvent[]);
-        setEvents((evData as StatEvent[]).slice(0, 20));
-      }
-
-      // Don't open a realtime channel for already-finished games
-      if (data.status === "finished") return;
+    if (game.status === "finished") return;
 
       const ch = supabase
-        .channel(`game-${data.id}`)
+        .channel(`game-${id}`)
         .on("postgres_changes", {
           event: "UPDATE",
           schema: "public",
           table: "games",
-          filter: `id=eq.${data.id}`,
+          filter: `id=eq.${id}`,
         }, (payload) => {
           const updated = payload.new as GameRow;
-          setGame((prev) => {
-            if (prev) {
-              setDisplayClock((currentClock) => {
-                if (!updated.is_running) return updated.clock_seconds;
-                if (!prev.is_running && updated.is_running) return updated.clock_seconds;
-                if (Math.abs(currentClock - updated.clock_seconds) > 3) return updated.clock_seconds;
-                return currentClock;
-              });
-            } else {
-              setDisplayClock(updated.clock_seconds);
-            }
-            return updated;
+          
+          setDisplayClock((currentClock) => {
+            if (!updated.is_running) return updated.clock_seconds;
+            const prev = queryClient.getQueryData<GameRow>(['game', id]);
+            if (!prev?.is_running && updated.is_running) return updated.clock_seconds;
+            if (Math.abs(currentClock - updated.clock_seconds) > 3) return updated.clock_seconds;
+            return currentClock;
           });
+
+          queryClient.setQueryData(['game', id], updated);
         })
         .on("postgres_changes", {
           event: "INSERT",
           schema: "public",
           table: "stat_events",
-          filter: `game_id=eq.${data.id}`,
+          filter: `game_id=eq.${id}`,
         }, (payload) => {
           const newEv = payload.new as StatEvent;
-          setAllEvents((prev) => [newEv, ...prev]);
-          setEvents((prev) => [newEv, ...prev].slice(0, 20));
+          queryClient.setQueryData(['stat_events', id], (old: StatEvent[] = []) => [newEv, ...old]);
         })
         .subscribe();
 
       channelRef.current = ch;
-    }
-
-    loadGame();
-
-    // Cleanup runs synchronously when id changes or component unmounts
     return () => {
-      cancelled = true;
       if (channelRef.current && supabase) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [id]);
+  }, [id, game?.status, queryClient]);
+
+  // Cleanup runs synchronously when id changes or component unmounts
 
   // Client-side clock tick when is_running
   useEffect(() => {
@@ -242,7 +222,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
     );
   }
 
-  if (noGame || !game) {
+  if (!game || noGame) {
     return (
       <div className={`${fredoka.variable} ${nunito.variable} min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-6`}>
         <h1 className="font-fredoka text-4xl md:text-6xl font-black tracking-widest text-white">
@@ -365,7 +345,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
         </div>
 
         {/* Play-by-play feed */}
-        {events.length > 0 && (
+        {allEvents.length > 0 && (
           <div className="w-full border-4 border-slate-700 bg-slate-800 mt-4">
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
               <h2 className="font-fredoka text-xl font-black uppercase tracking-widest text-slate-400">Play-by-Play</h2>
@@ -373,7 +353,7 @@ export default function GamePage({ params }: { params: Promise<{ id: string }> }
             </div>
             <div className="overflow-y-auto" style={{ maxHeight: '280px' }}>
               <div className="flex flex-col px-4 pb-4">
-                {events.map((ev) => (
+                {allEvents.slice(0, 20).map((ev) => (
                   <div key={ev.id} className="flex items-center gap-3 py-2 border-b border-slate-700 last:border-0">
                     <div className="flex items-center gap-2">
                       {ev.player_number ? (

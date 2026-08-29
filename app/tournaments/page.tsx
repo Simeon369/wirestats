@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useQuery } from "@tanstack/react-query";
 import { Fredoka, Nunito } from "next/font/google";
 import Link from "next/link";
 
@@ -53,28 +54,23 @@ function TournamentCard({ tournament }: { tournament: TournamentRow }) {
 }
 
 export default function TournamentsListPage() {
-  const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      if (!supabase) return;
+  const { data: tournaments = [], isLoading: loading } = useQuery({
+    queryKey: ['tournaments_list'],
+    queryFn: async () => {
       const { data } = await supabase
         .from("tournaments")
         .select("*")
         .order("created_at", { ascending: false });
-      if (data) {
-        const sorted = [...(data as TournamentRow[])].sort((a, b) => {
-          if (a.status === "ACTIVE" && b.status !== "ACTIVE") return -1;
-          if (b.status === "ACTIVE" && a.status !== "ACTIVE") return 1;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-        setTournaments(sorted);
-      }
-      setLoading(false);
+        
+      if (!data) return [];
+      
+      return [...(data as TournamentRow[])].sort((a, b) => {
+        if (a.status === "ACTIVE" && b.status !== "ACTIVE") return -1;
+        if (b.status === "ACTIVE" && a.status !== "ACTIVE") return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
     }
-    load();
-  }, []);
+  });
 
   if (loading) {
     return (
