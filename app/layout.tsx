@@ -16,7 +16,6 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "WireStats",
   description: "Track Your Stats. Elevate Your Game.",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
