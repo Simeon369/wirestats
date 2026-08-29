@@ -17,7 +17,7 @@ import {
 
 type Tab = "matches" | "leaderboard";
 
-type LeaderboardStat = "mvp" | "pts" | "reb" | "ast" | "stl" | "blk" | "3pm";
+type LeaderboardStat = "mvp" | "dpoy" | "pts" | "reb" | "ast" | "stl" | "blk" | "3pm";
 
 type PlayerLeaderboardRow = {
   player_id: string;
@@ -37,6 +37,7 @@ type PlayerLeaderboardRow = {
   total_blocks: number;
   total_fouls: number;
   mvp_rating: number;
+  dpoy_rating: number;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -45,6 +46,7 @@ type PlayerLeaderboardRow = {
 
 const STAT_TABS: { key: LeaderboardStat; label: string; emoji: string; field: keyof PlayerLeaderboardRow; unit: string }[] = [
   { key: "mvp", label: "MVP",  emoji: "🏆", field: "mvp_rating",          unit: "RTG" },
+  { key: "dpoy", label: "DPOY", emoji: "🛡️", field: "dpoy_rating",         unit: "DEF" },
   { key: "pts", label: "PTS",  emoji: "🏀", field: "total_points",         unit: "PTS" },
   { key: "reb", label: "REB",  emoji: "🙌", field: "total_rebounds",        unit: "REB" },
   { key: "ast", label: "AST",  emoji: "🤝", field: "total_assists",         unit: "AST" },
@@ -271,6 +273,64 @@ function MvpFeaturedCard({ player }: { player: PlayerLeaderboardRow }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DPOY Featured Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function DpoyFeaturedCard({ player }: { player: PlayerLeaderboardRow }) {
+  return (
+    <div className="relative overflow-hidden border-4 border-teal-400 shadow-[0_0_32px_rgba(45,212,191,0.25)] p-5 flex flex-col gap-4 bg-teal-950/40">
+      {/* Glow bg */}
+      <div className="absolute inset-0 bg-gradient-to-br from-teal-400/10 to-transparent pointer-events-none" />
+
+      {/* Shield + label */}
+      <div className="flex items-center gap-2">
+        <span className="text-3xl">🛡️</span>
+        <span className="font-fredoka text-sm font-black uppercase tracking-widest text-teal-400">
+          Defensive Player
+        </span>
+      </div>
+
+      {/* Player info */}
+      <div className="flex flex-col gap-1">
+        <span className="font-fredoka text-2xl font-black uppercase tracking-wider text-white">
+          {player.full_name}
+        </span>
+        <div className="flex items-center gap-2">
+          <span className="font-nunito text-xs font-bold text-slate-400">{player.position}</span>
+          <PlayerTeamBadge name={player.team_name} color={player.team_color} />
+          <span className="font-nunito text-xs font-bold text-slate-500">
+            {player.games_played} GP
+          </span>
+        </div>
+      </div>
+
+      {/* Big rating */}
+      <div className="flex items-end gap-2">
+        <span className="font-fredoka text-5xl font-black text-teal-400 leading-none">
+          {player.dpoy_rating}
+        </span>
+        <span className="font-nunito text-sm font-bold text-teal-600 mb-1 uppercase tracking-widest">
+          DEF Score
+        </span>
+      </div>
+
+      {/* Defensive stats grid */}
+      <div className="grid grid-cols-4 gap-2 border-t border-teal-400/30 pt-3">
+        <StatPill label="STL"  value={player.total_steals}        color="text-teal-400" />
+        <StatPill label="BLK"  value={player.total_blocks}        color="text-orange-400" />
+        <StatPill label="REB"  value={player.total_rebounds}      color="text-amber-400" />
+        <StatPill label="PF"   value={player.total_fouls}         color="text-red-400" />
+      </div>
+
+      {/* Formula footnote */}
+      <p className="font-nunito text-[10px] text-slate-600 font-bold italic leading-snug border-t border-slate-700/60 pt-2">
+        Defensive Score = 2.0×STL + 1.8×BLK + 1.0×REB − 0.5×PF
+      </p>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Leaderboard Panel
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -324,6 +384,8 @@ function LeaderboardPanel({ tournamentId }: { tournamentId: string }) {
   // Find the active tab config
   const tabConfig = STAT_TABS.find((t) => t.key === activeStat)!;
   const isMvp = activeStat === "mvp";
+  const isDpoy = activeStat === "dpoy";
+  const isFeatured = isMvp || isDpoy;
 
   // Sort and take top 10 for the active stat
   const sorted = [...allRows]
@@ -359,8 +421,13 @@ function LeaderboardPanel({ tournamentId }: { tournamentId: string }) {
         <MvpFeaturedCard player={sorted[0]} />
       )}
 
+      {/* ── DPOY Featured Card (only on DPOY tab) ── */}
+      {isDpoy && sorted.length > 0 && (
+        <DpoyFeaturedCard player={sorted[0]} />
+      )}
+
       {/* ── Top 3 Podium ── */}
-      {!isMvp && top3.length > 0 && (
+      {!isFeatured && top3.length > 0 && (
         <div className="flex flex-col gap-3">
           <h3 className="font-fredoka text-xs font-black uppercase tracking-widest text-slate-500">
             {tabConfig.emoji} {tabConfig.label} Leaders
@@ -373,15 +440,15 @@ function LeaderboardPanel({ tournamentId }: { tournamentId: string }) {
                 player={player}
                 primaryField={tabConfig.field}
                 primaryUnit={tabConfig.unit}
-                showMvpStats={isMvp}
+                showMvpStats={false}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* ── MVP tab: show ranks 2-10 as a list ── */}
-      {isMvp && sorted.length > 1 && (
+      {/* ── Featured tab: show ranks 2-10 as a list ── */}
+      {isFeatured && sorted.length > 1 && (
         <div className="border-4 border-slate-700 bg-slate-800 overflow-hidden">
           <div className="px-4 py-2 border-b border-slate-700 flex items-center gap-2">
             <span className="font-fredoka text-xs font-black uppercase tracking-widest text-slate-400">
@@ -400,8 +467,8 @@ function LeaderboardPanel({ tournamentId }: { tournamentId: string }) {
         </div>
       )}
 
-      {/* ── Non-MVP: ranked list for 4–10 ── */}
-      {!isMvp && rest.length > 0 && (
+      {/* ── Non-Featured: ranked list for 4–10 ── */}
+      {!isFeatured && rest.length > 0 && (
         <div className="border-4 border-slate-700 bg-slate-800 overflow-hidden">
           <div className="px-4 py-2 border-b border-slate-700">
             <span className="font-fredoka text-xs font-black uppercase tracking-widest text-slate-400">
