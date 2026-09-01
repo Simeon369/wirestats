@@ -81,16 +81,32 @@ export default function PlayerDetailsPage() {
         {/* Profile Header */}
         <div className="bg-slate-800 border-4 border-slate-600 shadow-[6px_6px_0_#334155] p-6 sm:p-10 flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-10">
           <div className="shrink-0">
-            <Jersey number="--" name={player.jersey_name} colorHex="#3b82f6" size="lg" />
+            {player.profile_image ? (
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-[#65d421] shadow-[4px_4px_0_#1b630a] overflow-hidden">
+                <img src={player.profile_image} alt={player.full_name} className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <Jersey number="--" name={player.jersey_name} colorHex="#3b82f6" size="lg" />
+            )}
           </div>
           <div className="flex flex-col items-center sm:items-start gap-2 text-center sm:text-left flex-1 min-w-0">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start">
               <span className="font-fredoka text-sm font-black text-white bg-slate-900 px-3 py-1 border-2 border-slate-700 rounded-full">
                 {player.position}
               </span>
               <span className="font-nunito text-sm font-bold text-slate-400 uppercase tracking-widest">
                 {player.jersey_name}
               </span>
+              {player.gender && (
+                <span className="font-nunito text-xs font-bold px-2 py-0.5 bg-slate-700 text-slate-300 border border-slate-600 uppercase tracking-widest">
+                  {player.gender}
+                </span>
+              )}
+              {player.age && (
+                <span className="font-nunito text-xs font-bold px-2 py-0.5 bg-slate-700 text-slate-300 border border-slate-600 uppercase tracking-widest">
+                  Age {player.age}
+                </span>
+              )}
             </div>
             <h2 className="font-fredoka text-4xl sm:text-5xl font-black text-white leading-tight break-words">
               {player.full_name}

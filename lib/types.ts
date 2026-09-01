@@ -4,6 +4,8 @@ export type GlobalPlayer = {
   jersey_name: string;
   position: 'PG' | 'SG' | 'SF' | 'PF' | 'C';
   gender?: string | null;
+  age?: number | null;
+  profile_image?: string | null;
   created_at?: string;
 };
 
@@ -22,6 +24,8 @@ export type PlayerStatsSummary = {
   jersey_name: string;
   position: 'PG' | 'SG' | 'SF' | 'PF' | 'C';
   gender?: string | null;
+  age?: number | null;
+  profile_image?: string | null;
   created_at?: string;
   games_played: number;
   total_points: number;
@@ -63,6 +67,9 @@ export type TournamentPlayerLeaderboard = {
   full_name: string;
   jersey_name: string;
   position: 'PG' | 'SG' | 'SF' | 'PF' | 'C';
+  gender?: string | null;
+  age?: number | null;
+  profile_image?: string | null;
   team_id: string;
   tournament_id: string;
   games_played: number;
